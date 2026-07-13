@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import AppNav from '@/components/layout/AppNav';
 import Button from '@/components/ui/Button';
@@ -16,11 +15,18 @@ import {
   updateDeckMeta,
   deleteDeck,
   setDeckVisibility,
+  restoreDeck,
 } from '@/lib/firestore/decks';
 import { ensureUser, getAiUsage, incrementAiUsage } from '@/lib/firestore/users';
 import { canGenerateAi, getPlanLimits } from '@/lib/plans';
 import { useFirebaseAuth } from '@/components/providers/FirebaseAuthProvider';
 import Skeleton from '@/components/ui/Skeleton';
+import StudyModeGrid from '@/components/deck/StudyModeGrid';
+import ExplainCard from '@/components/ai/ExplainCard';
+import StudyPlanModal from '@/components/deck/StudyPlanModal';
+import UndoToast from '@/components/ui/UndoToast';
+import { cardsToCsv, downloadCsv } from '@/lib/csv';
+import { stashDeletedDeck } from '@/lib/undo';
 
 export default function DeckDetailPage() {
   const { id } = useParams();
@@ -36,11 +42,15 @@ export default function DeckDetailPage() {
   const [folders, setFolders] = useState([]);
   const [aiText, setAiText] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [expanding, setExpanding] = useState(false);
+  const [tagging, setTagging] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
+  const [planOpen, setPlanOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [plan, setPlan] = useState('free');
+  const [termQuery, setTermQuery] = useState('');
 
   useEffect(() => {
     if (!isLoaded || !user || !id || !firebaseReady) return undefined;
@@ -80,6 +90,17 @@ export default function DeckDetailPage() {
     }
   }, [deck, user]);
 
+  const filteredCards = useMemo(() => {
+    const q = termQuery.trim().toLowerCase();
+    if (!q) return cards;
+    return cards.filter(
+      (c) =>
+        c.front?.toLowerCase().includes(q) ||
+        c.back?.toLowerCase().includes(q) ||
+        c.difficulty?.toLowerCase().includes(q)
+    );
+  }, [cards, termQuery]);
+
   const reloadDeck = async () => {
     const d = await getDeck(id);
     if (!d) {
@@ -94,14 +115,19 @@ export default function DeckDetailPage() {
     setCards(c.length ? c : [emptyCard(0)]);
   };
 
-  const onGenerate = async () => {
-    setError('');
+  const checkAiQuota = async () => {
     const used = await getAiUsage(user.id);
     if (!canGenerateAi(plan, used)) {
       const limits = getPlanLimits(plan);
       setError(`AI limit reached (${limits.aiGensPerDay}/day on ${limits.name}).`);
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const onGenerate = async () => {
+    setError('');
+    if (!(await checkAiQuota())) return;
     setGenerating(true);
     try {
       const res = await fetch('/api/generate', {
@@ -116,6 +142,8 @@ export default function DeckDetailPage() {
         front: c.front || '',
         back: c.back || '',
         mastery: 0,
+        imageUrl: '',
+        difficulty: '',
       }));
       setCards(next);
       await incrementAiUsage(user.id);
@@ -124,6 +152,74 @@ export default function DeckDetailPage() {
     } finally {
       setGenerating(false);
     }
+  };
+
+  const onExpand = async () => {
+    setError('');
+    if (!(await checkAiQuota())) return;
+    setExpanding(true);
+    try {
+      const existing = cards.filter((c) => c.front.trim() || c.back.trim());
+      const res = await fetch('/api/ai/expand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, cards: existing, count: 5 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Expand failed');
+      const added = (Array.isArray(data) ? data : []).map((c, i) => ({
+        id: `temp_exp_${Date.now()}_${i}`,
+        front: c.front || '',
+        back: c.back || '',
+        mastery: 0,
+        imageUrl: '',
+        difficulty: '',
+      }));
+      if (!added.length) throw new Error('No new cards returned');
+      setCards((prev) => [...prev.filter((c) => c.front.trim() || c.back.trim()), ...added]);
+      await incrementAiUsage(user.id);
+    } catch (e) {
+      setError(e.message || 'Could not add related cards');
+    } finally {
+      setExpanding(false);
+    }
+  };
+
+  const onTagDifficulty = async () => {
+    setError('');
+    if (!(await checkAiQuota())) return;
+    setTagging(true);
+    try {
+      const existing = cards.filter((c) => c.front.trim() || c.back.trim());
+      const res = await fetch('/api/ai/difficulty', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cards: existing }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Tagging failed');
+      const byFront = Object.fromEntries(
+        (Array.isArray(data) ? data : []).map((c) => [c.front, c.difficulty])
+      );
+      setCards((prev) =>
+        prev.map((c) => ({
+          ...c,
+          difficulty: byFront[c.front] || c.difficulty || '',
+        }))
+      );
+      await incrementAiUsage(user.id);
+    } catch (e) {
+      setError(e.message || 'Could not tag difficulty');
+    } finally {
+      setTagging(false);
+    }
+  };
+
+  const onExplainQuota = async () => {
+    setError('');
+    if (!(await checkAiQuota())) return false;
+    await incrementAiUsage(user.id);
+    return true;
   };
 
   const onSave = async () => {
@@ -158,14 +254,29 @@ export default function DeckDetailPage() {
       : '';
 
   const handleDelete = async () => {
-    if (!confirm('Delete this deck permanently?')) return;
+    if (!confirm('Delete this deck? You can undo for a few minutes.')) return;
+    stashDeletedDeck(
+      {
+        title: deck.title,
+        description: deck.description,
+        folderId: deck.folderId,
+      },
+      cards.filter((c) => c.front || c.back)
+    );
     await deleteDeck(id);
     router.push('/library');
   };
 
+  const handleExport = () => {
+    downloadCsv(
+      `${(deck.title || 'deck').replace(/\s+/g, '-').toLowerCase()}.csv`,
+      cardsToCsv(cards)
+    );
+  };
+
   if (error && !deck) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen pb-20 sm:pb-0">
         <AppNav />
         <p className="p-10 text-center text-muted">{error}</p>
       </div>
@@ -174,7 +285,7 @@ export default function DeckDetailPage() {
 
   if (!deck) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen pb-20 sm:pb-0">
         <AppNav />
         <main className="mx-auto max-w-3xl px-4 py-10 space-y-4">
           <Skeleton className="h-8 w-64" />
@@ -191,63 +302,107 @@ export default function DeckDetailPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-20 sm:pb-0">
       <AppNav />
-      <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
         {!editing ? (
           <>
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h1 className="font-display text-3xl font-semibold text-ink">{deck.title}</h1>
-                {deck.description ? (
-                  <p className="mt-2 text-muted">{deck.description}</p>
-                ) : null}
-                <p className="mt-2 text-sm text-muted">{deck.cardCount || cards.length} terms</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-                  Edit
-                </Button>
-                <Button variant="secondary" size="sm" onClick={() => setShareOpen(true)}>
-                  Share
-                </Button>
-                <Button variant="ghost" size="sm" onClick={handleDelete}>
-                  Delete
-                </Button>
+            <div className="rounded-2xl border border-line bg-surface p-5 sm:p-6 shadow-soft">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent mb-1">
+                    Study set
+                  </p>
+                  <h1 className="font-display text-3xl font-bold tracking-tight text-ink">
+                    {deck.title}
+                  </h1>
+                  {deck.description ? (
+                    <p className="mt-3 text-muted leading-relaxed">{deck.description}</p>
+                  ) : null}
+                  <p className="mt-3 text-sm font-semibold text-muted">
+                    {deck.cardCount || cards.length} terms
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+                    Edit
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setShareOpen(true)}>
+                    Share
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setPlanOpen(true)}>
+                    Study plan
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={handleExport}>
+                    Export
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={handleDelete}>
+                    Delete
+                  </Button>
+                </div>
               </div>
             </div>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              {[
-                { mode: 'flashcards', label: 'Flashcards', desc: 'Flip through terms' },
-                { mode: 'learn', label: 'Learn', desc: 'Know vs still learning' },
-                { mode: 'write', label: 'Write', desc: 'Type the term from memory' },
-                { mode: 'match', label: 'Match', desc: 'Pair terms fast' },
-              ].map((m) => (
-                <Link
-                  key={m.mode}
-                  href={`/decks/${id}/study/${m.mode}`}
-                  className="rounded-2xl border border-line bg-white p-5 shadow-soft transition hover:border-accent"
-                >
-                  <div className="font-display text-lg font-semibold text-ink">{m.label}</div>
-                  <p className="mt-1 text-sm text-muted">{m.desc}</p>
-                </Link>
-              ))}
+            <div className="mt-6">
+              <h2 className="font-display text-lg font-bold tracking-tight text-ink mb-3">
+                Choose a study mode
+              </h2>
+              <StudyModeGrid deckId={id} cards={cards} />
             </div>
 
-            <section className="mt-10">
-              <h2 className="font-display text-lg font-semibold text-ink mb-4">Terms</h2>
-              <ul className="divide-y divide-line border-y border-line">
-                {cards.map((card, i) => (
-                  <li key={card.id || i} className="grid gap-2 py-4 sm:grid-cols-2">
-                    <div>
-                      <p className="text-xs text-muted mb-1">Term</p>
-                      <p className="font-medium text-ink">{card.front}</p>
+            <section className="mt-6">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="font-display text-lg font-bold tracking-tight text-ink">
+                  Terms in this set ({filteredCards.length}
+                  {termQuery ? ` of ${cards.length}` : ''})
+                </h2>
+                <div className="w-full sm:w-64">
+                  <Input
+                    value={termQuery}
+                    onChange={(e) => setTermQuery(e.target.value)}
+                    placeholder="Search terms…"
+                  />
+                </div>
+              </div>
+              <ul className="overflow-hidden rounded-2xl border border-line bg-surface shadow-soft divide-y divide-line">
+                {filteredCards.map((card, i) => (
+                  <li
+                    key={card.id || i}
+                    className="px-5 py-4 hover:bg-canvas/70 transition-colors"
+                  >
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted mb-1">
+                          Term
+                          {card.difficulty ? (
+                            <span className="ml-2 normal-case tracking-normal font-semibold text-accent">
+                              {card.difficulty}
+                            </span>
+                          ) : null}
+                        </p>
+                        <p className="font-semibold text-ink">{card.front}</p>
+                        {card.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={card.imageUrl}
+                            alt=""
+                            className="mt-2 h-16 rounded-lg object-cover"
+                          />
+                        ) : null}
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted mb-1">
+                          Definition
+                        </p>
+                        <p className="text-ink leading-relaxed">{card.back}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-muted mb-1">Definition</p>
-                      <p className="text-ink">{card.back}</p>
-                    </div>
+                    <ExplainCard
+                      front={card.front}
+                      back={card.back}
+                      deckTitle={deck.title}
+                      onUseAi={onExplainQuota}
+                    />
                   </li>
                 ))}
               </ul>
@@ -274,6 +429,10 @@ export default function DeckDetailPage() {
               setAiText={setAiText}
               onGenerate={onGenerate}
               generating={generating}
+              onExpand={onExpand}
+              expanding={expanding}
+              onTagDifficulty={onTagDifficulty}
+              tagging={tagging}
               onSave={onSave}
               saving={saving}
               folderId={folderId}
@@ -319,9 +478,33 @@ export default function DeckDetailPage() {
             </Button>
           </div>
         ) : (
-          <p>Make the deck public to get a shareable link.</p>
+          <p>Make the deck public to get a shareable link and appear in Discover.</p>
         )}
       </Modal>
+
+      <StudyPlanModal
+        open={planOpen}
+        onClose={() => setPlanOpen(false)}
+        title={deck.title}
+        cards={cards}
+        onUseAi={async () => {
+          if (!(await checkAiQuota())) return false;
+          await incrementAiUsage(user.id);
+          return true;
+        }}
+      />
+
+      <UndoToast
+        onUndo={async (item) => {
+          if (!user) return;
+          const newId = await restoreDeck({
+            ownerId: user.id,
+            deck: item.deck,
+            cards: item.cards,
+          });
+          router.push(`/decks/${newId}`);
+        }}
+      />
     </div>
   );
 }

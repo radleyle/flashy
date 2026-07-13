@@ -21,10 +21,20 @@ export async function POST(req) {
     const stripe = getStripeServer();
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
+    let customerId = null;
+    try {
+      const { getAdminDb } = await import('@/lib/firebase-admin');
+      const snap = await getAdminDb().collection('users').doc(userId).get();
+      if (snap.exists) customerId = snap.data()?.stripeCustomerId || null;
+    } catch {
+      // continue without existing customer
+    }
+
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
       client_reference_id: userId,
+      ...(customerId ? { customer: customerId } : {}),
       metadata: {
         userId,
         planType,
@@ -40,7 +50,7 @@ export async function POST(req) {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: `Flash ${plan.name}`,
+              name: `Flashy ${plan.name}`,
             },
             unit_amount: formatAmountForStripe(plan.price),
             recurring: {

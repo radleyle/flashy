@@ -22,6 +22,8 @@ export default function CreatePage() {
   const [cards, setCards] = useState([emptyCard(0), emptyCard(1)]);
   const [aiText, setAiText] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [expanding, setExpanding] = useState(false);
+  const [tagging, setTagging] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [plan, setPlan] = useState('free');
@@ -29,21 +31,33 @@ export default function CreatePage() {
   useEffect(() => {
     if (!isLoaded || !user || !firebaseReady) return;
     (async () => {
-      const profile = await ensureUser(user.id);
-      setFolders(profile.folders || []);
-      setPlan(profile.plan || 'free');
+      try {
+        const profile = await ensureUser(user.id);
+        setFolders(profile.folders || []);
+        setPlan(profile.plan || 'free');
+      } catch (e) {
+        console.error(e);
+        setError(e.message || 'Could not load your account. Refresh and try again.');
+      }
     })();
   }, [isLoaded, user, firebaseReady]);
+
+  const checkAiQuota = async () => {
+    const used = await getAiUsage(user.id);
+    if (!canGenerateAi(plan, used)) {
+      const limits = getPlanLimits(plan);
+      setError(
+        `AI limit reached (${limits.aiGensPerDay}/day on ${limits.name}). Upgrade on Pricing.`
+      );
+      return false;
+    }
+    return true;
+  };
 
   const onGenerate = async () => {
     if (!user) return;
     setError('');
-    const used = await getAiUsage(user.id);
-    if (!canGenerateAi(plan, used)) {
-      const limits = getPlanLimits(plan);
-      setError(`AI limit reached (${limits.aiGensPerDay}/day on ${limits.name}). Upgrade on Pricing.`);
-      return;
-    }
+    if (!(await checkAiQuota())) return;
     setGenerating(true);
     try {
       const res = await fetch('/api/generate', {
@@ -69,6 +83,67 @@ export default function CreatePage() {
       setError(e.message || 'Could not generate cards');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const onExpand = async () => {
+    if (!user) return;
+    setError('');
+    if (!(await checkAiQuota())) return;
+    setExpanding(true);
+    try {
+      const existing = cards.filter((c) => c.front.trim() || c.back.trim());
+      const res = await fetch('/api/ai/expand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, cards: existing, count: 5 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Expand failed');
+      const added = (Array.isArray(data) ? data : []).map((c, i) => ({
+        id: `temp_exp_${Date.now()}_${i}`,
+        front: c.front || '',
+        back: c.back || '',
+        mastery: 0,
+      }));
+      if (!added.length) throw new Error('No new cards returned');
+      setCards((prev) => [...prev.filter((c) => c.front.trim() || c.back.trim()), ...added]);
+      await incrementAiUsage(user.id);
+    } catch (e) {
+      setError(e.message || 'Could not add related cards');
+    } finally {
+      setExpanding(false);
+    }
+  };
+
+  const onTagDifficulty = async () => {
+    if (!user) return;
+    setError('');
+    if (!(await checkAiQuota())) return;
+    setTagging(true);
+    try {
+      const existing = cards.filter((c) => c.front.trim() || c.back.trim());
+      const res = await fetch('/api/ai/difficulty', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cards: existing }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Tagging failed');
+      const byFront = Object.fromEntries(
+        (Array.isArray(data) ? data : []).map((c) => [c.front, c.difficulty])
+      );
+      setCards((prev) =>
+        prev.map((c) => ({
+          ...c,
+          difficulty: byFront[c.front] || c.difficulty || '',
+        }))
+      );
+      await incrementAiUsage(user.id);
+    } catch (e) {
+      setError(e.message || 'Could not tag difficulty');
+    } finally {
+      setTagging(false);
     }
   };
 
@@ -102,11 +177,14 @@ export default function CreatePage() {
   return (
     <div className="min-h-screen">
       <AppNav />
-      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">
-          Create deck
+      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent mb-1">
+          New study set
+        </p>
+        <h1 className="font-display text-3xl font-bold tracking-tight text-ink">
+          Create a set
         </h1>
-        <p className="mt-1 text-sm text-muted">Add terms manually or generate from notes.</p>
+        <p className="mt-1 text-sm text-muted">Add terms manually or generate from notes with AI.</p>
         {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
         {!firebaseReady ? (
           <div className="mt-8 space-y-4">
@@ -127,6 +205,10 @@ export default function CreatePage() {
               setAiText={setAiText}
               onGenerate={onGenerate}
               generating={generating}
+              onExpand={onExpand}
+              expanding={expanding}
+              onTagDifficulty={onTagDifficulty}
+              tagging={tagging}
               onSave={onSave}
               saving={saving}
               folderId={folderId}

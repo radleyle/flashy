@@ -1,4 +1,4 @@
-# Deploy Flash
+# Deploy Flashy
 
 ## 1. Firebase
 1. Enable **Authentication → Custom** (or leave providers empty; custom tokens still work).
@@ -20,20 +20,29 @@
 - Webhook endpoint: `https://YOUR_DOMAIN/api/stripe/webhook`
 - Events: `checkout.session.completed`, `customer.subscription.deleted`
 - Copy signing secret → `STRIPE_WEBHOOK_SECRET`
+- Enable **Customer Portal** in Stripe Dashboard → Settings → Billing → Customer portal
+  (payment methods, invoices, cancel). Account → Manage billing uses this.
 
 ## 4. OpenRouter
 - Set `OPENROUTER_API_KEY` for AI generate.
 
-## 5. Vercel
+## 5. Support email
+- Set `NEXT_PUBLIC_SUPPORT_EMAIL` (footer + Account “Email support”).
+
+## 6. Vercel
 ```bash
 npx vercel
 ```
 Set all vars from `.env.example`, with `NEXT_PUBLIC_BASE_URL` = your production URL.
 
-## 6. Smoke test
+Client errors are posted to `/api/errors` and appear in Vercel function logs.
+
+## 7. Smoke test
 - [ ] Sign up / sign in
 - [ ] Create deck (manual + AI)
 - [ ] Study Flashcards / Learn / Write / Match
 - [ ] Progress streak increments
 - [ ] Share public link works logged out
 - [ ] Checkout → `/result` updates plan
+- [ ] Account → Manage billing opens Stripe portal (after a paid checkout)
+- [ ] `/terms` and `/privacy` load

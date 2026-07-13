@@ -43,28 +43,30 @@ export default function PricingPage() {
       <AppNav />
       <main className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
         <div className="text-center max-w-xl mx-auto">
-          <h1 className="font-display text-4xl font-semibold text-ink">Pricing</h1>
-          <p className="mt-3 text-muted">
-            Start free. Upgrade when you need more decks and AI generations.
+          <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-ink">
+            Pricing
+          </h1>
+          <p className="mt-2 text-muted font-medium">
+            Start free. Upgrade when you need more sets and AI generations.
           </p>
         </div>
-        {error ? <p className="mt-6 text-center text-sm text-red-600">{error}</p> : null}
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
+        {error ? <p className="mt-5 text-center text-sm text-red-600">{error}</p> : null}
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
           {Object.values(PLANS).map((plan) => (
             <div
               key={plan.id}
-              className={`rounded-3xl border p-6 ${
+              className={`rounded-3xl border-2 p-7 ${
                 plan.id === 'pro'
-                  ? 'border-accent bg-white shadow-soft'
-                  : 'border-line bg-white/70'
+                  ? 'border-accent bg-surface shadow-lift'
+                  : 'border-line bg-surface shadow-soft'
               }`}
             >
-              <h2 className="font-display text-xl font-semibold text-ink">{plan.name}</h2>
-              <p className="mt-2 font-display text-3xl font-bold text-ink">
-                {plan.price === 0 ? 'Free' : `$${plan.price}`}
-                {plan.price > 0 ? (
-                  <span className="text-base font-medium text-muted"> / mo</span>
-                ) : null}
+              <h2 className="font-display text-xl font-bold tracking-tight text-ink">
+                {plan.name}
+              </h2>
+              <p className="mt-3 font-display text-4xl font-bold tracking-tight text-ink">
+                ${plan.price}
+                <span className="text-base font-semibold text-muted"> / mo</span>
               </p>
               <ul className="mt-5 space-y-2 text-sm text-muted">
                 {plan.features.map((f) => (

@@ -14,7 +14,7 @@ export default function TextArea({
       <textarea
         id={inputId}
         rows={rows}
-        className={`w-full rounded-xl border border-line bg-white px-3.5 py-3 text-sm text-ink placeholder:text-muted outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 resize-y ${className}`}
+        className={`w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-sm text-ink placeholder:text-muted outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 resize-y ${className}`}
         {...props}
       />
     </label>

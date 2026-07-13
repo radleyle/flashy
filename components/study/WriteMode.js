@@ -24,10 +24,34 @@ export default function WriteMode({ cards, onMasteryChange, onComplete, deckId }
   const [correct, setCorrect] = useState(0);
   const [wrong, setWrong] = useState(0);
   const [done, setDone] = useState(false);
+  const [coach, setCoach] = useState(null);
+  const [coaching, setCoaching] = useState(false);
 
   const card = queue[index];
   const total = queue.length;
   const progress = total ? ((correct + wrong) / total) * 100 : 0;
+
+  const loadCoach = async (userAnswer) => {
+    setCoaching(true);
+    setCoach(null);
+    try {
+      const res = await fetch('/api/ai/coach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          front: card.front,
+          back: card.back,
+          userAnswer,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) setCoach(data);
+    } catch {
+      // ignore
+    } finally {
+      setCoaching(false);
+    }
+  };
 
   const check = async () => {
     if (!card || feedback) return;
@@ -38,7 +62,10 @@ export default function WriteMode({ cards, onMasteryChange, onComplete, deckId }
       : Math.max(0, (card.mastery || 0) - 1);
     await onMasteryChange?.(card.id, nextMastery);
     if (ok) setCorrect((c) => c + 1);
-    else setWrong((w) => w + 1);
+    else {
+      setWrong((w) => w + 1);
+      loadCoach(answer);
+    }
   };
 
   const next = () => {
@@ -46,6 +73,7 @@ export default function WriteMode({ cards, onMasteryChange, onComplete, deckId }
     const nextWrong = feedback === 'wrong' ? wrong : wrong;
     setAnswer('');
     setFeedback(null);
+    setCoach(null);
     if (index + 1 >= total) {
       setDone(true);
       onComplete?.({
@@ -93,13 +121,21 @@ export default function WriteMode({ cards, onMasteryChange, onComplete, deckId }
         </div>
       </div>
 
-      <div className="rounded-3xl border border-line bg-white shadow-soft p-8 min-h-[240px]">
+      <div className="rounded-3xl border border-line bg-surface shadow-soft p-8 min-h-[240px]">
         <p className="text-xs font-semibold uppercase tracking-wider text-accent mb-3">
           Definition
         </p>
         <p className="font-display text-2xl font-semibold text-ink leading-snug">
           {card.back}
         </p>
+        {card.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={card.imageUrl}
+            alt=""
+            className="mt-4 max-h-40 rounded-xl border border-line object-contain"
+          />
+        ) : null}
         <div className="mt-8">
           <Input
             label="Type the term"
@@ -127,6 +163,19 @@ export default function WriteMode({ cards, onMasteryChange, onComplete, deckId }
               ? 'Correct'
               : `Not quite — answer: ${card.front}`}
           </p>
+        ) : null}
+        {feedback === 'wrong' ? (
+          <div className="mt-4 rounded-xl border border-line bg-canvas p-4 text-sm">
+            {coaching ? (
+              <p className="text-muted">Coach is thinking…</p>
+            ) : coach ? (
+              <div className="space-y-2">
+                <p className="font-semibold text-ink">{coach.why}</p>
+                <p className="text-muted">Tip: {coach.tip}</p>
+                <p className="text-accent font-medium">{coach.encouragement}</p>
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </div>
 

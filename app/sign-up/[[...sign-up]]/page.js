@@ -1,26 +1,28 @@
 import Link from 'next/link';
 import { SignUp } from '@clerk/nextjs';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 export default function SignUpPage() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b border-line bg-canvas/80">
-        <div className="mx-auto flex h-14 max-w-6xl items-center px-4">
+    <div className="min-h-screen bg-canvas flex flex-col">
+      <header className="border-b border-line bg-surface">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <Link href="/" className="font-display text-xl font-bold text-ink">
-            Flash
+            Flashy
           </Link>
+          <ThemeToggle />
         </div>
       </header>
-      <main className="flex flex-1 items-center justify-center px-4 py-12">
+      <main className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-md">
-          <h1 className="mb-6 text-center font-display text-2xl font-semibold text-ink">
+          <h1 className="mb-5 text-center font-display text-2xl font-bold text-ink">
             Sign up
           </h1>
           <SignUp
             appearance={{
               elements: {
                 rootBox: 'mx-auto',
-                card: 'shadow-soft border border-line',
+                card: 'shadow-soft border border-line bg-surface',
               },
             }}
           />

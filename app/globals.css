@@ -3,14 +3,37 @@
 @tailwind utilities;
 
 :root {
-  --canvas: #f5f7fa;
-  --ink: #0f172a;
-  --muted: #64748b;
-  --line: #e2e8f0;
-  --accent: #0d9488;
-  --accent-hover: #0f766e;
-  --accent-soft: #ccfbf1;
-  --sky-wash: #e8f4f8;
+  --canvas: #f3f1ef;
+  --surface: #ffffff;
+  --surface-2: #faf7f5;
+  --ink: #1c1917;
+  --muted: #6b635c;
+  --line: #e7e0da;
+  --accent: #ff5c4a;
+  --accent-hover: #e84533;
+  --accent-soft: #ffe4de;
+  --hero-from: #ffe8d6;
+  --hero-via: #f3f1ef;
+  --hero-to: #ffd6e2;
+  --shadow-soft: 0 1px 2px rgba(28, 25, 23, 0.04), 0 10px 28px rgba(28, 25, 23, 0.06);
+  --shadow-card: 0 0 0 1px rgba(28, 25, 23, 0.04), 0 8px 24px rgba(28, 25, 23, 0.08);
+}
+
+.dark {
+  --canvas: #14110f;
+  --surface: #1c1816;
+  --surface-2: #241f1c;
+  --ink: #faf6f3;
+  --muted: #a89f96;
+  --line: #35302c;
+  --accent: #ff7a66;
+  --accent-hover: #ff9485;
+  --accent-soft: #3a221e;
+  --hero-from: #2a1a16;
+  --hero-via: #14110f;
+  --hero-to: #2a1620;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -25,10 +48,7 @@ body {
 
 body {
   color: var(--ink);
-  background:
-    radial-gradient(1200px 600px at 80% -10%, var(--sky-wash), transparent 55%),
-    radial-gradient(900px 500px at -10% 20%, #eef8f6, transparent 50%),
-    var(--canvas);
+  background: var(--canvas);
   min-height: 100vh;
 }
 
@@ -52,5 +72,62 @@ a {
 
   .rotate-y-180 {
     transform: rotateY(180deg);
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes coralGlow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes coralBlade {
+  0%,
+  100% {
+    opacity: 0.75;
+    box-shadow: 0 0 4px 0 rgba(255, 92, 74, 0.55);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 8px 1px rgba(255, 92, 74, 0.9);
+  }
+}
+
+.animate-coral-glow {
+  animation: coralGlow 2.8s ease-in-out infinite;
+}
+
+.animate-coral-blade {
+  animation: coralBlade 2.8s ease-in-out infinite;
+}
+
+.dark .animate-coral-blade {
+  animation-name: coralBladeDark;
+}
+
+@keyframes coralBladeDark {
+  0%,
+  100% {
+    opacity: 0.8;
+    box-shadow: 0 0 5px 0 rgba(255, 122, 102, 0.6);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 10px 1px rgba(255, 122, 102, 0.95);
   }
 }

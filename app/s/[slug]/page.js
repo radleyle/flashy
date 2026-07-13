@@ -36,7 +36,7 @@ export default function SharedDeckPage() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
         <p className="text-muted">{error}</p>
         <Link href="/" className="text-accent font-semibold">
-          Go to Flash
+          Go to Flashy
         </Link>
       </div>
     );
@@ -56,7 +56,7 @@ export default function SharedDeckPage() {
       backHref="/"
       right={
         <Link href="/" className="text-sm font-semibold text-accent">
-          Flash
+          Flashy
         </Link>
       }
     >

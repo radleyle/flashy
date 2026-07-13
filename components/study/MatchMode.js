@@ -113,8 +113,8 @@ export default function MatchMode({ cards, onComplete, deckId }) {
                 isMatched
                   ? 'border-accent bg-accent-soft text-accent opacity-70'
                   : isSelected
-                    ? 'border-accent bg-white shadow-soft ring-2 ring-accent/30'
-                    : 'border-line bg-white hover:border-accent/50 text-ink'
+                    ? 'border-accent bg-surface shadow-soft ring-2 ring-accent/30'
+                    : 'border-line bg-surface hover:border-accent/50 text-ink'
               }`}
             >
               <span className="block text-[10px] uppercase tracking-wider text-muted mb-1">
