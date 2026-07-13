@@ -1,94 +1,82 @@
-'use client'
+'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation'; // Use next/navigation
-import Container from '@mui/material/Container';
-import CircularProgress from '@mui/material/CircularProgress';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import AppNav from '@/components/layout/AppNav';
+import Button from '@/components/ui/Button';
 
-const ResultPage = () => {
-  const router = useRouter();
+function ResultContent() {
   const searchParams = useSearchParams();
-  const session_id = searchParams.get('session_id');
-
+  const sessionId = searchParams.get('session_id');
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Ensure we have a session_id before making the fetch call
-    if (!session_id) {
+    if (!sessionId) {
       setError('No session ID provided.');
       setLoading(false);
       return;
     }
 
-    const fetchCheckoutSession = async () => {
+    (async () => {
       try {
-        const res = await fetch(`/api/checkout_sessions?session_id=${session_id}`);
-        const sessionData = await res.json();
-
-        if (res.ok) {
-          setSession(sessionData);
-        } else {
-          setError(sessionData.error || 'Failed to fetch session data.');
-        }
+        const res = await fetch(`/api/checkout_sessions?session_id=${sessionId}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch session');
+        setSession(data);
       } catch (err) {
-        setError('An error occurred while retrieving the session.');
+        setError(err.message || 'Could not verify payment.');
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchCheckoutSession();
-  }, [session_id]);
+    })();
+  }, [sessionId]);
 
   if (loading) {
-    return (
-      <Container maxWidth="sm" sx={{ textAlign: 'center', mt: 4 }}>
-        <CircularProgress />
-        <Typography variant="h6" sx={{ mt: 2 }}>
-          Loading...
-        </Typography>
-      </Container>
-    );
+    return <p className="text-center text-muted py-20">Confirming your payment…</p>;
   }
 
   if (error) {
     return (
-      <Container maxWidth="sm" sx={{ textAlign: 'center', mt: 4 }}>
-        <Typography variant="h6" color="error">
-          {error}
-        </Typography>
-      </Container>
+      <div className="text-center py-20">
+        <p className="text-red-600">{error}</p>
+        <Link href="/pricing" className="mt-4 inline-block text-accent font-semibold">
+          Back to pricing
+        </Link>
+      </div>
     );
   }
 
-  return (
-    <Container maxWidth="sm" sx={{ textAlign: 'center', mt: 4 }}>
-      {session?.payment_status === 'paid' ? (
-        <>
-          <Typography variant="h4">Thank you for your purchase!</Typography>
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="h6">Session ID: {session_id}</Typography>
-            <Typography variant="body1">
-              We have received your payment. You will receive an email with the order details shortly.
-            </Typography>
-          </Box>
-        </>
-      ) : (
-        <>
-          <Typography variant="h4">Payment failed</Typography>
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body1">
-              Your payment was not successful. Please try again.
-            </Typography>
-          </Box>
-        </>
-      )}
-    </Container>
-  );
-};
+  const paid = session?.payment_status === 'paid';
 
-export default ResultPage;
+  return (
+    <div className="mx-auto max-w-md text-center py-16">
+      <h1 className="font-display text-3xl font-semibold text-ink">
+        {paid ? 'You are all set' : 'Payment incomplete'}
+      </h1>
+      <p className="mt-3 text-muted">
+        {paid
+          ? `Your ${session.planType || 'paid'} plan is active. Head to your library and keep studying.`
+          : 'Your payment was not completed. You can try again from pricing.'}
+      </p>
+      <div className="mt-8 flex justify-center gap-3">
+        <Link href={paid ? '/library' : '/pricing'}>
+          <Button>{paid ? 'Open library' : 'Try again'}</Button>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+export default function ResultPage() {
+  return (
+    <div className="min-h-screen">
+      <AppNav />
+      <Suspense fallback={<p className="text-center text-muted py-20">Loading…</p>}>
+        <ResultContent />
+      </Suspense>
+    </div>
+  );
+}

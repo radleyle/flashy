@@ -1,41 +1,31 @@
-import { Container, AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
 import Link from 'next/link';
-import {ClerkProvider, SignedIn, SignedOut, SignInButton, SignOutButton,UserButton } from '@clerk/nextjs'
-import { SignIn, SignUp } from '@clerk/nextjs';
-export default function SignUpPage() {
-    return <Container maxWidth="sm">
-        <AppBar position="static" sx={{backgroundColor: "#3f51b5"}}>
-            <Toolbar>
-                <Typography
-                    variant="h6"
-                    sx={{flexGrow: 1}}>
-                        Flashcard SaaS
-                </Typography>
-                <Button color="inherit">
-                    <Link href="/sign-in" passHref>
-                        Log In
-                    </Link>
-                </Button>
-                <Button color="inherit">
-                    <Link href="/sign-up" passHref>
-                        Sign Up
-                    </Link>
-                </Button>
-            </Toolbar>
-        </AppBar>
-        
+import { SignIn } from '@clerk/nextjs';
 
-        <Box
-            display="flex"
-            flexDirection="column"
-            alignItems="center"
-            justifyContent="center"
-            height="100vh"
-        >
-            <Typography variant="h4" gutterBottom>
-                Login
-            </Typography>
-            <SignIn />
-        </Box>
-    </Container>
+export default function SignInPage() {
+  return (
+    <div className="min-h-screen flex flex-col">
+      <header className="border-b border-line bg-canvas/80">
+        <div className="mx-auto flex h-14 max-w-6xl items-center px-4">
+          <Link href="/" className="font-display text-xl font-bold text-ink">
+            Flash
+          </Link>
+        </div>
+      </header>
+      <main className="flex flex-1 items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <h1 className="mb-6 text-center font-display text-2xl font-semibold text-ink">
+            Log in
+          </h1>
+          <SignIn
+            appearance={{
+              elements: {
+                rootBox: 'mx-auto',
+                card: 'shadow-soft border border-line',
+              },
+            }}
+          />
+        </div>
+      </main>
+    </div>
+  );
 }

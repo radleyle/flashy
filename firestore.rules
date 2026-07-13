@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function deckDoc(deckId) {
+      return get(/databases/$(database)/documents/decks/$(deckId));
+    }
+
+    function ownsDeck(deckId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/decks/$(deckId))
+        && deckDoc(deckId).data.ownerId == request.auth.uid;
+    }
+
+    function publicDeck(deckId) {
+      return exists(/databases/$(database)/documents/decks/$(deckId))
+        && deckDoc(deckId).data.visibility == 'public';
+    }
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /decks/{deckId} {
+      allow read: if resource.data.visibility == 'public'
+        || (signedIn() && resource.data.ownerId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+
+      match /cards/{cardId} {
+        allow read: if publicDeck(deckId) || ownsDeck(deckId);
+        allow create, update, delete: if ownsDeck(deckId);
+      }
+    }
+
+    match /studySessions/{sessionId} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}
