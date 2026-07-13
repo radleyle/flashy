@@ -4,6 +4,21 @@
 
 Create sets from notes or by hand, organize them in folders, share public links, join classes, and track streaks and daily goals. Free and paid plans unlock more decks and AI actions.
 
+## Tech stack
+
+| Layer | Technology | What it does in Flashy |
+|-------|------------|------------------------|
+| **App framework** | Next.js 14 (App Router) + React | Pages, study UI, and API routes (`/api/...`) for AI, checkout, billing, and Firebase tokens. |
+| **Styling** | Tailwind CSS | Design system (colors, layout, light/dark theme) across marketing and app screens. |
+| **Auth** | Clerk | Sign up / log in, session cookies, and protected routes (library, create, study, account, etc.). |
+| **Database** | Firebase Firestore | Stores users, decks, cards, folders, study sessions, classes, and plan usage. |
+| **Auth bridge** | Firebase Admin + custom tokens | After Clerk login, the server mints a Firebase token so the browser can read/write Firestore securely under your rules. |
+| **Payments** | Stripe | Subscription checkout for Basic/Pro, webhooks to update the user’s plan, optional customer portal for billing. |
+| **AI** | OpenRouter | Powers generate-from-notes, explain, expand, coach, difficulty tags, and study plans (server-side; users don’t need their own key). |
+| **Hosting** | Vercel | Runs the Next.js app in production and serves your domain. |
+
+Fonts: **Syne** (display) + **Figtree** (body), loaded via `next/font`.
+
 ---
 
 ## Features
