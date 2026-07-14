@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { SignedIn, SignedOut } from '@clerk/nextjs';
+import { SignedIn, SignedOut, useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import { track } from '@/lib/analytics';
+import { useFirebaseAuth } from '@/components/providers/FirebaseAuthProvider';
+import { ensureUser, setOnboardingCompleted } from '@/lib/firestore/users';
 
-const ONBOARDING_KEY = 'flashy_onboarding_v1';
+const ONBOARDING_KEY_PREFIX = 'flashy_onboarding_v1:';
 const LAST_ACTIVE_KEY = 'flashy_last_active';
 const WB_SESSION_KEY = 'flashy_wb_session';
 const WB_SHOWN_AT_KEY = 'flashy_wb_shown_at';
@@ -33,6 +35,10 @@ const FIRST_STEPS = [
   },
 ];
 
+function onboardingKey(userId) {
+  return `${ONBOARDING_KEY_PREFIX}${userId}`;
+}
+
 function touchLastActive() {
   try {
     localStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()));
@@ -50,9 +56,7 @@ function shouldWelcomeBack() {
     const idleLong = !last || Date.now() - last >= INACTIVITY_MS;
     const alreadyThisSession = Boolean(sessionStorage.getItem(WB_SESSION_KEY));
 
-    // New browser session (reopen app / fresh tab session) → welcome back once
     if (!alreadyThisSession) return true;
-    // Same session, but idle too long (tab left open overnight, etc.)
     if (idleLong) return true;
     return false;
   } catch {
@@ -110,35 +114,61 @@ function OverlayShell({ titleId, eyebrow, title, titleAccent, body, children }) 
 }
 
 function WelcomeInner() {
+  const { user, isLoaded } = useUser();
+  const { ready: firebaseReady } = useFirebaseAuth();
   const [mode, setMode] = useState(null); // 'first' | 'back' | null
   const [step, setStep] = useState(0);
   const shownRef = useRef(false);
+  const userId = user?.id;
 
   useEffect(() => {
-    if (shownRef.current) return;
-    try {
-      const onboarded = Boolean(localStorage.getItem(ONBOARDING_KEY));
-      if (!onboarded) {
-        shownRef.current = true;
-        setMode('first');
-        track('onboarding_shown');
-        return;
-      }
-      if (shouldWelcomeBack()) {
-        shownRef.current = true;
-        markWelcomeBackShown();
-        setMode('back');
-        track('welcome_back_shown');
-        return;
-      }
-      touchLastActive();
-      markWelcomeBackShown();
-    } catch {
-      /* ignore */
-    }
-  }, []);
+    if (!isLoaded || !userId || !firebaseReady || shownRef.current) return undefined;
+    let cancelled = false;
 
-  // Keep last-active fresh while using the app (so short breaks don't re-trigger)
+    (async () => {
+      try {
+        const profile = await ensureUser(userId);
+        if (cancelled) return;
+
+        // New accounts are created with onboardingCompleted: false.
+        // Legacy accounts (field missing) are treated as already onboarded.
+        const needsFirstWelcome = profile.onboardingCompleted === false;
+
+        if (needsFirstWelcome) {
+          shownRef.current = true;
+          setMode('first');
+          track('onboarding_shown', { userId });
+          return;
+        }
+
+        // Per-user local cache (shared browsers / faster paint)
+        try {
+          if (!localStorage.getItem(onboardingKey(userId))) {
+            // Field missing/true but cache empty — don't force intro on legacy users
+          }
+        } catch {
+          /* ignore */
+        }
+
+        if (shouldWelcomeBack()) {
+          shownRef.current = true;
+          markWelcomeBackShown();
+          setMode('back');
+          track('welcome_back_shown', { userId });
+          return;
+        }
+        touchLastActive();
+        markWelcomeBackShown();
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, userId, firebaseReady]);
+
   useEffect(() => {
     touchLastActive();
     const onVis = () => {
@@ -171,9 +201,12 @@ function WelcomeInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, step]);
 
-  const dismiss = (reason) => {
+  const dismiss = async (reason) => {
     try {
-      if (mode === 'first') localStorage.setItem(ONBOARDING_KEY, '1');
+      if (mode === 'first' && userId) {
+        localStorage.setItem(onboardingKey(userId), '1');
+        await setOnboardingCompleted(userId, true).catch(() => {});
+      }
       markWelcomeBackShown();
       touchLastActive();
     } catch {
@@ -279,7 +312,6 @@ function WelcomeInner() {
   );
 }
 
-/** Clear session flag on sign-out so the next sign-in can welcome them back. */
 function ClearWelcomeSession() {
   useEffect(() => {
     try {
