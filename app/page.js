@@ -63,8 +63,10 @@ export default function HomePage() {
             className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_15%_0%,var(--hero-from),transparent_55%),radial-gradient(ellipse_at_90%_10%,var(--hero-to),transparent_50%),radial-gradient(ellipse_at_50%_100%,var(--accent-soft),transparent_60%)]"
           />
           <div className="mx-auto max-w-5xl px-4 pt-14 pb-16 sm:px-6 sm:pt-20 sm:pb-20">
-            <p className="font-display text-6xl sm:text-8xl font-bold tracking-[-0.05em] text-ink animate-fadeUp">
-              Flashy
+            <p className="animate-fadeUp">
+              <span className="font-display text-6xl sm:text-8xl font-bold tracking-[-0.05em] text-accent animate-coral-word">
+                Flashy
+              </span>
             </p>
             <h1 className="mt-5 max-w-2xl font-display text-2xl sm:text-3xl font-bold tracking-tight text-ink leading-snug animate-fadeUp [animation-delay:60ms]">
               Study sets with sunrise energy — and AI when you need speed.
