@@ -4,8 +4,6 @@
 
 Create sets from notes or by hand, organize them in folders, share public links, join classes, and track streaks and daily goals. Free and paid plans unlock more decks and AI actions.
 
----
-
 ## Demo
 <div>
     <a href="https://www.loom.com/share/5e2a7ea036dd4743bf543dc378afd71a">
