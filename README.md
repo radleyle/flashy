@@ -4,6 +4,20 @@
 
 Create sets from notes or by hand, organize them in folders, share public links, join classes, and track streaks and daily goals. Free and paid plans unlock more decks and AI actions.
 
+---
+
+## Demo
+<div>
+    <a href="https://www.loom.com/share/5e2a7ea036dd4743bf543dc378afd71a">
+      <p>flashcard-saas – Deployment Overview – Vercel - 14 July 2026 - Watch Video</p>
+    </a>
+    <a href="https://www.loom.com/share/5e2a7ea036dd4743bf543dc378afd71a">
+      <img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/5e2a7ea036dd4743bf543dc378afd71a-913e812fa4c2eeea-full-play.gif#t=0.1">
+    </a>
+</div>
+
+---
+
 ## Tech stack
 
 | Layer | Technology | What it does in Flashy |
