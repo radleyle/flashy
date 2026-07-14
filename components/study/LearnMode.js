@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from '../ui/Button';
 import SessionSummary from './SessionSummary';
 import ExplainCard from '../ai/ExplainCard';
+import SpeakButton from '../ui/SpeakButton';
+import { nextReviewDate } from '@/lib/srs';
 
 export default function LearnMode({ cards, onMasteryChange, onComplete, deckId, deckTitle }) {
   const queue = useMemo(
@@ -15,10 +17,12 @@ export default function LearnMode({ cards, onMasteryChange, onComplete, deckId, 
   const [known, setKnown] = useState(0);
   const [learning, setLearning] = useState(0);
   const [done, setDone] = useState(false);
+  const [lastHint, setLastHint] = useState('');
 
   const card = queue[index];
   const total = queue.length;
   const progress = total ? ((known + learning) / total) * 100 : 0;
+  const mastery = card?.mastery || 0;
 
   const answer = useCallback(
     async (knewIt) => {
@@ -26,6 +30,7 @@ export default function LearnMode({ cards, onMasteryChange, onComplete, deckId, 
       const nextMastery = knewIt
         ? Math.min(5, (card.mastery || 0) + 1)
         : Math.max(0, (card.mastery || 0) - 1);
+      setLastHint(`Next review ${nextReviewDate(nextMastery)}`);
       await onMasteryChange?.(card.id, nextMastery);
       const nextKnown = known + (knewIt ? 1 : 0);
       const nextLearning = learning + (knewIt ? 0 : 1);
@@ -103,9 +108,15 @@ export default function LearnMode({ cards, onMasteryChange, onComplete, deckId, 
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-8 text-center">
-        <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-mode-learn">
-          Term
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-mode-learn">
+          Term · mastery {mastery}/5
         </p>
+        {lastHint ? (
+          <p className="mb-4 text-xs font-semibold text-muted">{lastHint}</p>
+        ) : null}
+        <div className="mb-3">
+          <SpeakButton text={card.front} />
+        </div>
         <p className="font-display max-w-xl text-3xl sm:text-5xl font-bold tracking-tight text-ink leading-[1.15]">
           {card.front}
         </p>

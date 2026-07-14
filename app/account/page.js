@@ -7,7 +7,7 @@ import AppNav from '@/components/layout/AppNav';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Skeleton from '@/components/ui/Skeleton';
-import { ensureUser, getAiUsage, setDailyGoal } from '@/lib/firestore/users';
+import { ensureUser, getAiUsage, setDailyGoal, setEmailDigest } from '@/lib/firestore/users';
 import { listDecks } from '@/lib/firestore/decks';
 import { getPlanLimits } from '@/lib/plans';
 import { useFirebaseAuth } from '@/components/providers/FirebaseAuthProvider';
@@ -27,6 +27,7 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
   const [reminder, setReminder] = useState(false);
+  const [emailDigest, setEmailDigestOn] = useState(false);
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export default function AccountPage() {
         setDeckCount(decks.length);
         setAiUsed(used);
         setGoal(p.dailyGoal || 20);
+        setEmailDigestOn(Boolean(p.emailDigest));
       } finally {
         setLoading(false);
       }
@@ -100,6 +102,28 @@ export default function AccountPage() {
     setReminder(next);
     localStorage.setItem(REMINDER_KEY, next ? '1' : '0');
     setMsg(next ? 'Daily reminder on (when you open Flashy).' : 'Reminder off.');
+  };
+
+  const toggleEmailDigest = async () => {
+    const next = !emailDigest;
+    setSaving(true);
+    setMsg('');
+    try {
+      const email = user.primaryEmailAddress?.emailAddress;
+      if (next && !email) throw new Error('No email on your account');
+      await setEmailDigest(user.id, next, email);
+      setEmailDigestOn(next);
+      setProfile((p) => ({ ...p, emailDigest: next, email: email || p?.email }));
+      setMsg(
+        next
+          ? 'Email digests on — you’ll get a daily due-card reminder when the server cron runs.'
+          : 'Email digests off.'
+      );
+    } catch (e) {
+      setMsg(e.message || 'Could not update email preference');
+    } finally {
+      setSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -223,7 +247,14 @@ export default function AccountPage() {
                 <Button variant="secondary" onClick={toggleReminder}>
                   {reminder ? 'Reminders on' : 'Enable reminders'}
                 </Button>
+                <Button variant="secondary" onClick={toggleEmailDigest} disabled={saving}>
+                  {emailDigest ? 'Email digests on' : 'Enable email digests'}
+                </Button>
               </div>
+              <p className="text-xs text-muted">
+                Browser reminders fire when you open Flashy. Email digests send once a day when
+                configured (Resend + Vercel Cron).
+              </p>
               {msg ? <p className="text-sm text-muted">{msg}</p> : null}
             </div>
 

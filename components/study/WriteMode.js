@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import SessionSummary from './SessionSummary';
+import { nextReviewDate } from '@/lib/srs';
 
 function normalize(s) {
   return (s || '')
@@ -26,6 +27,7 @@ export default function WriteMode({ cards, onMasteryChange, onComplete, deckId }
   const [done, setDone] = useState(false);
   const [coach, setCoach] = useState(null);
   const [coaching, setCoaching] = useState(false);
+  const [lastHint, setLastHint] = useState('');
 
   const card = queue[index];
   const total = queue.length;
@@ -60,6 +62,7 @@ export default function WriteMode({ cards, onMasteryChange, onComplete, deckId }
     const nextMastery = ok
       ? Math.min(5, (card.mastery || 0) + 1)
       : Math.max(0, (card.mastery || 0) - 1);
+    setLastHint(`Next review ${nextReviewDate(nextMastery)}`);
     await onMasteryChange?.(card.id, nextMastery);
     if (ok) setCorrect((c) => c + 1);
     else {
@@ -123,8 +126,11 @@ export default function WriteMode({ cards, onMasteryChange, onComplete, deckId }
 
       <div className="rounded-3xl border border-line bg-surface shadow-soft p-8 min-h-[240px]">
         <p className="text-xs font-semibold uppercase tracking-wider text-accent mb-3">
-          Definition
+          Definition · mastery {card.mastery || 0}/5
         </p>
+        {lastHint ? (
+          <p className="mb-3 text-xs font-semibold text-muted">{lastHint}</p>
+        ) : null}
         <p className="font-display text-2xl font-semibold text-ink leading-snug">
           {card.back}
         </p>

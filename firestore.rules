@@ -24,19 +24,38 @@ service cloud.firestore {
         && deckDoc(deckId).data.visibility == 'public';
     }
 
+    function classReader(deckId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/decks/$(deckId))
+        && deckDoc(deckId).data.keys().hasAny(['readerIds'])
+        && request.auth.uid in deckDoc(deckId).data.readerIds;
+    }
+
+    function canReadDeck(deckId) {
+      return publicDeck(deckId) || ownsDeck(deckId) || classReader(deckId);
+    }
+
     match /users/{userId} {
       allow read, write: if isOwner(userId);
     }
 
     match /decks/{deckId} {
       allow read: if resource.data.visibility == 'public'
-        || (signedIn() && resource.data.ownerId == request.auth.uid);
+        || (signedIn() && resource.data.ownerId == request.auth.uid)
+        || (signedIn()
+            && resource.data.keys().hasAny(['readerIds'])
+            && request.auth.uid in resource.data.readerIds);
       allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if signedIn() && resource.data.ownerId == request.auth.uid;
 
       match /cards/{cardId} {
-        allow read: if publicDeck(deckId) || ownsDeck(deckId);
-        allow create, update, delete: if ownsDeck(deckId);
+        allow read: if canReadDeck(deckId);
+        // Owners edit freely; class readers may update mastery/SRS fields while studying
+        allow create, delete: if ownsDeck(deckId);
+        allow update: if ownsDeck(deckId)
+          || (classReader(deckId)
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['mastery', 'nextReviewAt', 'lastStudiedAt']));
       }
     }
 
@@ -47,7 +66,6 @@ service cloud.firestore {
     }
 
     match /classes/{classId} {
-      // Signed-in users can look up by join code; membership still gates updates.
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.ownerId == request.auth.uid

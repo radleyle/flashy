@@ -21,10 +21,15 @@ export default function DeckList({
         : decks.filter((d) => d.folderId === activeFolderId);
 
   if (!filtered.length) {
+    const inFolder = activeFolderId !== 'all';
     return (
       <EmptyState
-        title="No sets yet"
-        description="Create a study set manually or generate one from your notes with AI."
+        title={inFolder ? 'No sets in this folder' : 'No sets yet'}
+        description={
+          inFolder
+            ? 'Drag a set onto this folder, or create a new one and put it here.'
+            : 'Your library is empty. Create a set by hand, or paste notes / upload a PDF and generate with AI.'
+        }
         actionLabel="Create a set"
         actionHref="/create"
       />

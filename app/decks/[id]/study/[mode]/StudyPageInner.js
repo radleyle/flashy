@@ -14,7 +14,14 @@ import Skeleton from '@/components/ui/Skeleton';
 import { getDeck, listCards, updateCardMastery } from '@/lib/firestore/decks';
 import { createStudySession } from '@/lib/firestore/progress';
 import { useFirebaseAuth } from '@/components/providers/FirebaseAuthProvider';
-import { isDue, sortByDue } from '@/lib/srs';
+import { isDue, nextReviewDate, sortByDue } from '@/lib/srs';
+import { track } from '@/lib/analytics';
+import {
+  cacheDeckOffline,
+  flushMasteryQueue,
+  getCachedDeck,
+  queueMasteryUpdate,
+} from '@/lib/offline';
 
 const MODES = ['flashcards', 'learn', 'match', 'write', 'test'];
 
@@ -36,22 +43,60 @@ export default function StudyPageInner() {
   }, [mode, id, router]);
 
   useEffect(() => {
-    if (!isLoaded || !user || !id || !firebaseReady) return;
+    if (!isLoaded || !user || !id) return;
+    if (!firebaseReady) {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        getCachedDeck(id).then((cached) => {
+          if (cached?.deck) {
+            setDeck(cached.deck);
+            setCards(cached.cards || []);
+          }
+        });
+      }
+      return;
+    }
     (async () => {
       try {
         const d = await getDeck(id);
-        if (!d || d.ownerId !== user.id) {
+        const canAccess =
+          d &&
+          (d.ownerId === user.id ||
+            (d.readerIds || []).includes(user.id) ||
+            d.visibility === 'public');
+        if (!canAccess) {
           setError('Deck not found');
           return;
         }
+        const cardList = await listCards(id);
         setDeck(d);
-        setCards(await listCards(id));
+        setCards(cardList);
+        cacheDeckOffline(d, cardList).catch(() => {});
+        track('study_started', { mode, dueOnly: dueOnly ? 1 : 0 });
       } catch (e) {
         console.error(e);
+        try {
+          const cached = await getCachedDeck(id);
+          if (cached?.deck && cached?.cards?.length) {
+            setDeck(cached.deck);
+            setCards(cached.cards);
+            return;
+          }
+        } catch {
+          /* ignore */
+        }
         setError('Failed to load study session');
       }
     })();
-  }, [isLoaded, user, id, firebaseReady]);
+  }, [isLoaded, user, id, firebaseReady, mode, dueOnly]);
+
+  useEffect(() => {
+    const flush = () => {
+      flushMasteryQueue(updateCardMastery).catch(() => {});
+    };
+    window.addEventListener('online', flush);
+    if (navigator.onLine) flush();
+    return () => window.removeEventListener('online', flush);
+  }, []);
 
   const studyCards = useMemo(() => {
     let list = cards;
@@ -62,6 +107,7 @@ export default function StudyPageInner() {
   const saveSession = useCallback(
     async (results) => {
       if (!user) return;
+      if (!navigator.onLine) return;
       try {
         await createStudySession({
           userId: user.id,
@@ -77,10 +123,18 @@ export default function StudyPageInner() {
   );
 
   const onMasteryChange = async (cardId, mastery) => {
-    await updateCardMastery(id, cardId, mastery);
+    const nextAt = nextReviewDate(mastery);
     setCards((prev) =>
-      prev.map((c) => (c.id === cardId ? { ...c, mastery } : c))
+      prev.map((c) =>
+        c.id === cardId ? { ...c, mastery, nextReviewAt: nextAt } : c
+      )
     );
+    try {
+      if (!navigator.onLine) throw new Error('offline');
+      await updateCardMastery(id, cardId, mastery);
+    } catch {
+      await queueMasteryUpdate(id, cardId, mastery);
+    }
   };
 
   if (error) {

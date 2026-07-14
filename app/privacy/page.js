@@ -41,7 +41,8 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong className="text-ink">Usage</strong> — plan, AI usage counts, streaks, and
-                basic product analytics.
+                first-party product events (for example: create deck, start study, AI generate) that
+                we log on our servers. We do not use third-party ad trackers.
               </li>
               <li>
                 <strong className="text-ink">Billing</strong> — handled by Stripe (card details stay

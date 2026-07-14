@@ -7,6 +7,7 @@ import AppNav from '@/components/layout/AppNav';
 import CardEditor, { emptyCard } from '@/components/deck/CardEditor';
 import Skeleton from '@/components/ui/Skeleton';
 import { createDeck, listDecks } from '@/lib/firestore/decks';
+import { track } from '@/lib/analytics';
 import { ensureUser, getAiUsage, incrementAiUsage } from '@/lib/firestore/users';
 import { canCreateDeck, canGenerateAi, getPlanLimits } from '@/lib/plans';
 import { useFirebaseAuth } from '@/components/providers/FirebaseAuthProvider';
@@ -76,6 +77,7 @@ export default function CreatePage() {
       if (!next.length) throw new Error('No cards returned');
       setCards(next);
       await incrementAiUsage(user.id);
+      track('ai_generate', { source: 'create', count: next.length });
       if (!title.trim()) {
         setTitle(aiText.trim().slice(0, 48) || 'AI deck');
       }
@@ -167,6 +169,7 @@ export default function CreatePage() {
         folderId,
         cards: cleaned,
       });
+      track('deck_created', { cardCount: cleaned.length });
       router.push(`/decks/${id}`);
     } catch (e) {
       setError(e.message || 'Could not save deck');

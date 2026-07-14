@@ -7,6 +7,7 @@ import MobileNav from '@/components/layout/MobileNav';
 import SiteFooter from '@/components/layout/SiteFooter';
 import PwaRegister from '@/components/providers/PwaRegister';
 import ErrorReporter from '@/components/providers/ErrorReporter';
+import OnboardingModal from '@/components/onboarding/OnboardingModal';
 
 const syne = Syne({
   subsets: ['latin'],
@@ -60,6 +61,7 @@ export default function RootLayout({ children }) {
               <MobileNav />
               <PwaRegister />
               <ErrorReporter />
+              <OnboardingModal />
             </FirebaseAuthProvider>
           </ThemeProvider>
         </body>

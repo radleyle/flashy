@@ -66,8 +66,8 @@ export default function DiscoverPage() {
           <div className="mt-8">
             <EmptyState
               title="No public decks yet"
-              description="Share one of your sets as public to appear here."
-              actionLabel="Open library"
+              description="When someone shares a set as public, it shows up here. You can also publish one of yours from Share on a deck."
+              actionLabel="Go to library"
               actionHref="/library"
             />
           </div>

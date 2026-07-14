@@ -1,5 +1,5 @@
-const CACHE = 'flash-shell-v1';
-const SHELL = ['/', '/library', '/manifest.webmanifest'];
+const CACHE = 'flashy-shell-v2';
+const SHELL = ['/', '/library', '/manifest.webmanifest', '/icon-192.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

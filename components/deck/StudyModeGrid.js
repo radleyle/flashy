@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { isDue } from '@/lib/srs';
+import { isDue, isNew } from '@/lib/srs';
 
 const MODES = [
   {
@@ -43,8 +43,8 @@ const DUE_HELP =
   'Flashy schedules reviews for you — there is no due-date picker. After you study in Learn or Write and rate how well you know a card, it gets a next-review date (higher mastery = longer wait). When that date is today or earlier, the card shows here. New cards with no review yet are not due.';
 
 export default function StudyModeGrid({ deckId, cards = [] }) {
-  // Only cards that already have a scheduled nextReviewAt in the past/today
   const dueCount = cards.filter((c) => isDue(c)).length;
+  const newCount = cards.filter((c) => isNew(c)).length;
 
   return (
     <div className="space-y-3">
@@ -87,6 +87,11 @@ export default function StudyModeGrid({ deckId, cards = [] }) {
             Study →
           </Link>
         </div>
+      ) : newCount > 0 ? (
+        <p className="rounded-2xl border border-line bg-surface px-5 py-3 text-sm text-muted">
+          {newCount} new card{newCount === 1 ? '' : 's'} — study Learn or Write to schedule
+          reviews. Nothing is due yet.
+        </p>
       ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         {MODES.map((m) => (

@@ -27,6 +27,11 @@ import StudyPlanModal from '@/components/deck/StudyPlanModal';
 import UndoToast from '@/components/ui/UndoToast';
 import { cardsToCsv, downloadCsv } from '@/lib/csv';
 import { stashDeletedDeck } from '@/lib/undo';
+import { track } from '@/lib/analytics';
+import EmptyState from '@/components/ui/EmptyState';
+import SpeakButton from '@/components/ui/SpeakButton';
+import { isDue, isNew } from '@/lib/srs';
+import { cacheDeckOffline } from '@/lib/offline';
 
 export default function DeckDetailPage() {
   const { id } = useParams();
@@ -75,6 +80,7 @@ export default function DeckDetailPage() {
         const c = await listCards(id);
         if (cancelled) return;
         setCards(c.length ? c : [emptyCard(0)]);
+        if (d && c.length) cacheDeckOffline(d, c).catch(() => {});
       } catch (e) {
         console.error(e);
         if (!cancelled) setError('Failed to load deck');
@@ -87,7 +93,10 @@ export default function DeckDetailPage() {
 
   useEffect(() => {
     if (deck && user && deck.ownerId !== user.id) {
-      setError('You do not have access to this deck.');
+      const readers = deck.readerIds || [];
+      if (!readers.includes(user.id) && deck.visibility !== 'public') {
+        setError('You do not have access to this deck.');
+      }
     }
   }, [deck, user]);
 
@@ -101,6 +110,25 @@ export default function DeckDetailPage() {
         c.difficulty?.toLowerCase().includes(q)
     );
   }, [cards, termQuery]);
+
+  const realCards = useMemo(
+    () => cards.filter((c) => c.front?.trim() || c.back?.trim()),
+    [cards]
+  );
+
+  const srsStats = useMemo(() => {
+    let newCount = 0;
+    let dueCount = 0;
+    let learned = 0;
+    realCards.forEach((c) => {
+      if (isNew(c)) newCount += 1;
+      if (isDue(c)) dueCount += 1;
+      if ((c.mastery || 0) >= 3) learned += 1;
+    });
+    return { newCount, dueCount, learned };
+  }, [realCards]);
+
+  const isOwner = Boolean(user && deck && deck.ownerId === user.id);
 
   const reloadDeck = async () => {
     const d = await getDeck(id);
@@ -148,6 +176,7 @@ export default function DeckDetailPage() {
       }));
       setCards(next);
       await incrementAiUsage(user.id);
+      track('ai_generate', { source: 'deck_edit', count: next.length });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -321,25 +350,38 @@ export default function DeckDetailPage() {
                     <p className="mt-3 text-muted leading-relaxed">{deck.description}</p>
                   ) : null}
                   <p className="mt-3 text-sm font-semibold text-muted">
-                    {deck.cardCount || cards.length} terms
+                    {deck.cardCount || realCards.length} terms
+                    {realCards.length ? (
+                      <span className="font-medium text-muted">
+                        {' '}
+                        · {srsStats.newCount} new · {srsStats.dueCount} due ·{' '}
+                        {srsStats.learned} learned
+                      </span>
+                    ) : null}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-                    Edit
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => setShareOpen(true)}>
-                    Share
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => setPlanOpen(true)}>
-                    Study plan
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={handleExport}>
-                    Export
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={handleDelete}>
-                    Delete
-                  </Button>
+                  {isOwner ? (
+                    <>
+                      <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+                        Edit
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => setShareOpen(true)}>
+                        Share
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => setPlanOpen(true)}>
+                        Study plan
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={handleExport}>
+                        Export
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={handleDelete}>
+                        Delete
+                      </Button>
+                    </>
+                  ) : (
+                    <p className="text-sm font-semibold text-muted self-center">Shared via class</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -354,26 +396,36 @@ export default function DeckDetailPage() {
             <section className="mt-6">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="font-display text-lg font-bold tracking-tight text-ink">
-                  Terms in this set ({filteredCards.length}
-                  {termQuery ? ` of ${cards.length}` : ''})
+                  Terms in this set ({filteredCards.filter((c) => c.front?.trim() || c.back?.trim()).length}
+                  {termQuery ? ` of ${realCards.length}` : ''})
                 </h2>
-                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setShowDefinitions((v) => !v)}
-                  >
-                    {showDefinitions ? 'Hide definitions' : 'Show definitions'}
-                  </Button>
-                  <div className="w-full sm:w-56">
-                    <Input
-                      value={termQuery}
-                      onChange={(e) => setTermQuery(e.target.value)}
-                      placeholder="Search terms…"
-                    />
+                {realCards.length ? (
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setShowDefinitions((v) => !v)}
+                    >
+                      {showDefinitions ? 'Hide definitions' : 'Show definitions'}
+                    </Button>
+                    <div className="w-full sm:w-56">
+                      <Input
+                        value={termQuery}
+                        onChange={(e) => setTermQuery(e.target.value)}
+                        placeholder="Search terms…"
+                      />
+                    </div>
                   </div>
-                </div>
+                ) : null}
               </div>
+              {!realCards.length ? (
+                <EmptyState
+                  title="No terms yet"
+                  description="Add terms by hand or generate them from your notes with AI."
+                  actionLabel={isOwner ? 'Add terms' : undefined}
+                  onAction={isOwner ? () => setEditing(true) : undefined}
+                />
+              ) : (
               <ul className="overflow-hidden rounded-2xl border border-line bg-surface shadow-soft divide-y divide-line">
                 {filteredCards.map((card, i) => (
                   <li
@@ -391,8 +443,16 @@ export default function DeckDetailPage() {
                               {card.difficulty}
                             </span>
                           ) : null}
+                          {typeof card.mastery === 'number' && showDefinitions ? (
+                            <span className="ml-2 normal-case tracking-normal font-semibold text-muted">
+                              · mastery {card.mastery}/5
+                            </span>
+                          ) : null}
                         </p>
-                        <p className="font-semibold text-ink">{card.front}</p>
+                        <p className="font-semibold text-ink inline-flex items-center gap-2">
+                          {card.front}
+                          <SpeakButton text={card.front} />
+                        </p>
                         {card.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -407,7 +467,10 @@ export default function DeckDetailPage() {
                           <p className="text-[11px] font-bold uppercase tracking-wider text-muted mb-1">
                             Definition
                           </p>
-                          <p className="text-ink leading-relaxed">{card.back}</p>
+                          <p className="text-ink leading-relaxed inline-flex items-start gap-2">
+                            <span>{card.back}</span>
+                            <SpeakButton text={card.back} className="mt-0.5 shrink-0" />
+                          </p>
                         </div>
                       ) : null}
                     </div>
@@ -422,6 +485,7 @@ export default function DeckDetailPage() {
                   </li>
                 ))}
               </ul>
+              )}
             </section>
           </>
         ) : (

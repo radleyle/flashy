@@ -7,14 +7,14 @@ import AppNav from '@/components/layout/AppNav';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Skeleton from '@/components/ui/Skeleton';
+import EmptyState from '@/components/ui/EmptyState';
 import {
   createClass,
   listOwnedClasses,
   listJoinedClasses,
-  joinClassByCode,
   addDeckToClass,
 } from '@/lib/firestore/classes';
-import { listDecks } from '@/lib/firestore/decks';
+import { listDecks, getDeck } from '@/lib/firestore/decks';
 import { useFirebaseAuth } from '@/components/providers/FirebaseAuthProvider';
 
 export default function ClassesPage() {
@@ -37,7 +37,24 @@ export default function ClassesPage() {
     ]);
     setOwned(o);
     setJoined(j.filter((c) => c.ownerId !== user.id));
-    setDecks(d);
+    const byId = Object.fromEntries(d.map((deck) => [deck.id, deck]));
+    const missing = new Set();
+    [...o, ...j].forEach((c) => {
+      (c.deckIds || []).forEach((id) => {
+        if (!byId[id]) missing.add(id);
+      });
+    });
+    await Promise.all(
+      [...missing].map(async (id) => {
+        try {
+          const deck = await getDeck(id);
+          if (deck) byId[id] = deck;
+        } catch {
+          /* ignore */
+        }
+      })
+    );
+    setDecks(Object.values(byId));
   };
 
   useEffect(() => {
@@ -76,7 +93,13 @@ export default function ClassesPage() {
     setBusy(true);
     setError('');
     try {
-      await joinClassByCode(user.id, code);
+      const res = await fetch('/api/classes/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Join failed');
       setCode('');
       await reload();
     } catch (e) {
@@ -117,16 +140,22 @@ export default function ClassesPage() {
         </div>
       </div>
       {(c.deckIds || []).length ? (
-        <ul className="mt-4 space-y-1">
+        <ul className="mt-4 space-y-2">
           {c.deckIds.map((deckId) => {
             const deck = decks.find((d) => d.id === deckId);
             return (
-              <li key={deckId}>
+              <li key={deckId} className="flex flex-wrap items-center justify-between gap-2">
                 <Link
                   href={`/decks/${deckId}`}
                   className="text-sm font-semibold text-ink hover:text-accent"
                 >
-                  {deck?.title || deckId}
+                  {deck?.title || 'Open shared set'}
+                </Link>
+                <Link
+                  href={`/decks/${deckId}/study/flashcards`}
+                  className="text-sm font-bold text-accent hover:underline"
+                >
+                  Study →
                 </Link>
               </li>
             );
@@ -174,6 +203,7 @@ export default function ClassesPage() {
           <div className="rounded-2xl border border-line bg-surface p-4 space-y-3">
             <p className="font-bold text-ink">Create a class</p>
             <Input
+              id="class-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Bio 101"
@@ -205,7 +235,10 @@ export default function ClassesPage() {
             <section>
               <h2 className="font-display text-lg font-bold text-ink mb-3">Your classes</h2>
               {!owned.length ? (
-                <p className="text-sm text-muted">You haven&apos;t created a class yet.</p>
+                <EmptyState
+                  title="No classes yet"
+                  description="Create a class, share the join code with your group, then attach decks they can study."
+                />
               ) : (
                 <ul className="space-y-3">{owned.map((c) => renderClass(c, true))}</ul>
               )}
@@ -213,7 +246,10 @@ export default function ClassesPage() {
             <section>
               <h2 className="font-display text-lg font-bold text-ink mb-3">Joined</h2>
               {!joined.length ? (
-                <p className="text-sm text-muted">No joined classes yet.</p>
+                <EmptyState
+                  title="No joined classes"
+                  description="Enter a join code above to study decks your teacher or classmate shared."
+                />
               ) : (
                 <ul className="space-y-3">{joined.map((c) => renderClass(c, false))}</ul>
               )}

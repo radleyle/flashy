@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // experimental: {
-    //     appDir: true, // Enable app directory feature
-    // },
-    // Additional configurations can be added here
+  webpack: (config) => {
+    config.resolve.alias.canvas = false;
+    return config;
+  },
 };
 
 export default nextConfig;

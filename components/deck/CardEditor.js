@@ -5,6 +5,7 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import TextArea from '../ui/TextArea';
 import { cardsToCsv, downloadCsv, parseCsv } from '@/lib/csv';
+import { extractPdfText } from '@/lib/pdfText';
 
 function emptyCard(index = 0) {
   return {
@@ -60,23 +61,32 @@ export default function CardEditor({
   const onImportFile = async (file) => {
     if (!file) return;
     const name = file.name.toLowerCase();
-    const text = await file.text();
-    if (name.endsWith('.csv') || name.endsWith('.tsv')) {
-      const parsed = parseCsv(text);
-      if (!parsed.length) return;
-      setCards(
-        parsed.map((c, i) => ({
-          ...emptyCard(i),
-          front: c.front,
-          back: c.back,
-          imageUrl: c.imageUrl || '',
-          difficulty: c.difficulty || '',
-        }))
-      );
-      return;
+    try {
+      if (name.endsWith('.pdf')) {
+        const text = await extractPdfText(file);
+        setAiText((prev) => (prev ? `${prev}\n\n${text}` : text));
+        return;
+      }
+      const text = await file.text();
+      if (name.endsWith('.csv') || name.endsWith('.tsv')) {
+        const parsed = parseCsv(text);
+        if (!parsed.length) return;
+        setCards(
+          parsed.map((c, i) => ({
+            ...emptyCard(i),
+            front: c.front,
+            back: c.back,
+            imageUrl: c.imageUrl || '',
+            difficulty: c.difficulty || '',
+          }))
+        );
+        return;
+      }
+      // .txt / .md — feed into AI notes box
+      setAiText((prev) => (prev ? `${prev}\n\n${text}` : text));
+    } catch (e) {
+      window.alert(e.message || 'Could not read that file');
     }
-    // .txt / .md / pasted PDF text — feed into AI notes box
-    setAiText((prev) => (prev ? `${prev}\n\n${text}` : text));
   };
 
   return (
@@ -116,7 +126,8 @@ export default function CardEditor({
       <section className="rounded-2xl border border-line bg-surface p-5">
         <h2 className="font-display text-lg font-bold text-ink">Generate with AI</h2>
         <p className="mt-1 text-sm text-muted">
-          Paste notes, upload a .txt/.md, or import a CSV. For PDFs, paste the text here.
+          Paste notes, upload a .txt/.md/.pdf, or import a CSV. PDF text is extracted in your
+          browser (scanned image PDFs won’t work).
         </p>
         <div className="mt-4">
           <TextArea

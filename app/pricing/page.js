@@ -6,6 +6,7 @@ import AppNav from '@/components/layout/AppNav';
 import Button from '@/components/ui/Button';
 import { PLANS } from '@/lib/plans';
 import getStripe from '@/utils/get-stripe';
+import { track } from '@/lib/analytics';
 
 export default function PricingPage() {
   const { user, isSignedIn } = useUser();
@@ -19,6 +20,7 @@ export default function PricingPage() {
     }
     setLoading(planType);
     setError('');
+    track('checkout_started', { planType });
     try {
       const res = await fetch('/api/checkout_sessions', {
         method: 'POST',

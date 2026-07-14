@@ -29,6 +29,13 @@
 ## 5. Support email
 - Set `NEXT_PUBLIC_SUPPORT_EMAIL` (footer + Account “Email support”).
 
+## 5b. Email digests (optional)
+- Create a [Resend](https://resend.com) API key → `RESEND_API_KEY`
+- Set `EMAIL_FROM` to a verified sender (e.g. `Flashy <hello@yourdomain.com>`)
+- Set `CRON_SECRET` to a long random string
+- Vercel Cron hits `/api/cron/due-digest` daily (see `vercel.json`); authorize with `Authorization: Bearer CRON_SECRET`
+- Users opt in under Account → Enable email digests
+
 ## 6. Vercel
 ```bash
 npx vercel
