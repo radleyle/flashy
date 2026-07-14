@@ -50,8 +50,17 @@ export function FirebaseAuthProvider({ children }) {
         }
 
         const res = await fetch('/api/firebase-token', { method: 'POST' });
-        const data = await res.json();
+        const text = await res.text();
+        let data = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          throw new Error(
+            'Firebase token API returned a non-JSON response. On Vercel, set FIREBASE_SERVICE_ACCOUNT_JSON (full service-account JSON as one line) and redeploy — do not use FIREBASE_SERVICE_ACCOUNT_PATH.'
+          );
+        }
         if (!res.ok) throw new Error(data.error || 'Token request failed');
+        if (!data.token) throw new Error(data.error || 'No Firebase token returned');
 
         await signInWithCustomToken(auth, data.token);
         if (!cancelled) setReady(true);
