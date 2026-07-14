@@ -91,38 +91,50 @@ export default function FlashcardPlayer({ cards, onComplete, deckId, deckTitle }
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setFlipped((f) => !f)}
-        className="flex flex-1 flex-col items-center justify-center px-6 py-8 text-center outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-      >
-        <p
-          className={`mb-4 text-[11px] font-bold uppercase tracking-[0.18em] transition-colors ${
-            flipped ? 'text-accent' : 'text-mode-flash'
-          }`}
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-6 sm:px-6">
+        <button
+          type="button"
+          onClick={() => setFlipped((f) => !f)}
+          aria-label={flipped ? 'Show term' : 'Show definition'}
+          className="perspective-1000 w-full max-w-3xl text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/30 rounded-[1.75rem]"
         >
-          {flipped ? 'Definition' : 'Term'}
-        </p>
-        <div
-          key={`${card.id}-${flipped}`}
-          className="animate-fadeUp max-w-xl"
-        >
-          <p className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-ink leading-[1.15]">
-            {flipped ? card.back : card.front}
-          </p>
-          {!flipped && card.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={card.imageUrl}
-              alt=""
-              className="mx-auto mt-6 max-h-36 rounded-xl object-contain"
-            />
-          ) : null}
-        </div>
-        <p className="mt-10 text-sm font-semibold text-muted">
-          Tap anywhere to flip
-        </p>
-      </button>
+          <div
+            className={`relative h-[22rem] sm:h-[26rem] w-full transition-transform duration-500 ease-out preserve-3d ${
+              flipped ? 'rotate-y-180' : ''
+            }`}
+          >
+            {/* Front — term */}
+            <div className="absolute inset-0 backface-hidden rounded-[1.75rem] border border-line bg-surface p-8 sm:p-12 flex flex-col justify-center items-center text-center shadow-card">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-mode-flash mb-4">
+                Term
+              </p>
+              <p className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-ink leading-tight">
+                {card.front}
+              </p>
+              {card.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={card.imageUrl}
+                  alt=""
+                  className="mt-5 max-h-28 rounded-xl object-contain"
+                />
+              ) : null}
+              <p className="mt-8 text-sm font-semibold text-muted">Tap to flip</p>
+            </div>
+
+            {/* Back — definition */}
+            <div className="absolute inset-0 backface-hidden rotate-y-180 rounded-[1.75rem] border border-accent/25 bg-accent-soft p-8 sm:p-12 flex flex-col justify-center items-center text-center shadow-card">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-mode-flash mb-4">
+                Definition
+              </p>
+              <p className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-ink leading-snug">
+                {card.back}
+              </p>
+              <p className="mt-8 text-sm font-semibold text-muted">Tap to flip back</p>
+            </div>
+          </div>
+        </button>
+      </div>
 
       <div className="border-t border-line bg-surface/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-3xl flex-col gap-3 px-4 py-4 sm:px-6">

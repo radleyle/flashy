@@ -51,6 +51,7 @@ export default function DeckDetailPage() {
   const [copied, setCopied] = useState(false);
   const [plan, setPlan] = useState('free');
   const [termQuery, setTermQuery] = useState('');
+  const [showDefinitions, setShowDefinitions] = useState(false);
 
   useEffect(() => {
     if (!isLoaded || !user || !id || !firebaseReady) return undefined;
@@ -356,12 +357,21 @@ export default function DeckDetailPage() {
                   Terms in this set ({filteredCards.length}
                   {termQuery ? ` of ${cards.length}` : ''})
                 </h2>
-                <div className="w-full sm:w-64">
-                  <Input
-                    value={termQuery}
-                    onChange={(e) => setTermQuery(e.target.value)}
-                    placeholder="Search terms…"
-                  />
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowDefinitions((v) => !v)}
+                  >
+                    {showDefinitions ? 'Hide definitions' : 'Show definitions'}
+                  </Button>
+                  <div className="w-full sm:w-56">
+                    <Input
+                      value={termQuery}
+                      onChange={(e) => setTermQuery(e.target.value)}
+                      placeholder="Search terms…"
+                    />
+                  </div>
                 </div>
               </div>
               <ul className="overflow-hidden rounded-2xl border border-line bg-surface shadow-soft divide-y divide-line">
@@ -370,7 +380,9 @@ export default function DeckDetailPage() {
                     key={card.id || i}
                     className="px-5 py-4 hover:bg-canvas/70 transition-colors"
                   >
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div
+                      className={`grid gap-3 ${showDefinitions ? 'sm:grid-cols-2' : ''}`}
+                    >
                       <div>
                         <p className="text-[11px] font-bold uppercase tracking-wider text-muted mb-1">
                           Term
@@ -390,19 +402,23 @@ export default function DeckDetailPage() {
                           />
                         ) : null}
                       </div>
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted mb-1">
-                          Definition
-                        </p>
-                        <p className="text-ink leading-relaxed">{card.back}</p>
-                      </div>
+                      {showDefinitions ? (
+                        <div>
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-muted mb-1">
+                            Definition
+                          </p>
+                          <p className="text-ink leading-relaxed">{card.back}</p>
+                        </div>
+                      ) : null}
                     </div>
-                    <ExplainCard
-                      front={card.front}
-                      back={card.back}
-                      deckTitle={deck.title}
-                      onUseAi={onExplainQuota}
-                    />
+                    {showDefinitions ? (
+                      <ExplainCard
+                        front={card.front}
+                        back={card.back}
+                        deckTitle={deck.title}
+                        onUseAi={onExplainQuota}
+                      />
+                    ) : null}
                   </li>
                 ))}
               </ul>

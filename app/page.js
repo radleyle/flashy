@@ -35,7 +35,7 @@ const FEATURES = [
   ['Explain any card', 'Get a plain-language explanation and memory tip.'],
   ['Expand a set', 'Ask AI to add related cards without wiping your work.'],
   ['Folders + sharing', 'Organize sets, move in bulk, and share public links.'],
-  ['Due today', 'Spaced review surfaces what needs practice now.'],
+  ['Spaced review', 'After you study, cards get a next-review date from mastery — Due today appears when those dates arrive.'],
   ['Progress streaks', 'See sessions and keep a daily streak going.'],
 ];
 

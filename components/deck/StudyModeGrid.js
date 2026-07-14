@@ -39,24 +39,54 @@ const MODES = [
   },
 ];
 
+const DUE_HELP =
+  'Flashy schedules reviews for you — there is no due-date picker. After you study in Learn or Write and rate how well you know a card, it gets a next-review date (higher mastery = longer wait). When that date is today or earlier, the card shows here. New cards with no review yet are not due.';
+
 export default function StudyModeGrid({ deckId, cards = [] }) {
+  // Only cards that already have a scheduled nextReviewAt in the past/today
   const dueCount = cards.filter((c) => isDue(c)).length;
 
   return (
     <div className="space-y-3">
       {dueCount > 0 ? (
-        <Link
-          href={`/decks/${deckId}/study/flashcards?due=1`}
-          className="flex items-center justify-between rounded-2xl border-2 border-accent/30 bg-accent-soft px-5 py-4 shadow-soft transition hover:-translate-y-0.5"
-        >
-          <div>
-            <p className="font-display text-lg font-bold text-ink">Due today</p>
+        <div className="relative z-30 flex items-center justify-between gap-3 rounded-2xl border-2 border-accent/30 bg-accent-soft px-5 py-4 shadow-soft">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <Link
+                href={`/decks/${deckId}/study/flashcards?due=1`}
+                className="font-display text-lg font-bold text-ink hover:text-accent"
+              >
+                Due today
+              </Link>
+              <span className="group relative inline-flex">
+                <button
+                  type="button"
+                  className="flex h-4 w-4 items-center justify-center rounded-full border border-accent/50 text-[10px] font-bold leading-none text-accent hover:bg-accent hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  aria-label="How Due today works"
+                  aria-describedby="due-today-help"
+                >
+                  i
+                </button>
+                <span
+                  id="due-today-help"
+                  role="tooltip"
+                  className="pointer-events-none absolute left-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface px-3.5 py-3 text-left text-sm font-normal leading-relaxed text-muted opacity-0 shadow-card transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                >
+                  {DUE_HELP}
+                </span>
+              </span>
+            </div>
             <p className="text-sm text-muted">
-              {dueCount} card{dueCount === 1 ? '' : 's'} ready for review
+              {dueCount} card{dueCount === 1 ? '' : 's'} scheduled for review
             </p>
           </div>
-          <span className="text-sm font-bold text-accent">Study →</span>
-        </Link>
+          <Link
+            href={`/decks/${deckId}/study/flashcards?due=1`}
+            className="shrink-0 text-sm font-bold text-accent hover:underline"
+          >
+            Study →
+          </Link>
+        </div>
       ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         {MODES.map((m) => (
